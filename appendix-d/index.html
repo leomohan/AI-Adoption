@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Value Realization Framework — Appendix D</title>
+<meta name="description" content="An ROI calculator, investment J-curve, sensitivity analysis, and value tracker for enterprise AI programs, from the book From Deployment to Transformation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="book" href="../index.html">From Deployment to Transformation <span>· companion tools</span></a>
+    <nav><a href="../index.html">All tools</a></nav>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="wrap">
+    <div id="app"></div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Appendix D · companion to <em>From Deployment to Transformation</em> by Mohan Krishnamurthy · Leomohan Publications</span>
+    <span>Your figures are saved in this browser. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+const K_MODEL = "aivalue.model.v1";
+const K_TRK   = "aivalue.tracker.v1";
+const K_A = "aima.history.v1";
+const K_B = "aiedash.board.v1";
+
+function defaultModel(){ return {
+  users:5000, adoption:60, hours:1, loaded:60, attribution:70, otherBenefit:0,
+  horizon:36, ramp:12,
+  licensePerUser:360, infra:300000, support:200000, enablementAnnual:250000, oneTime:1200000
+}; }
+function sampleTracker(){ return { rows:[
+  { period:"Q1", planBen:300000, actBen:260000, planCost:1650000, actCost:1690000, notes:"Launch quarter; onboarding ramp." },
+  { period:"Q2", planBen:750000, actBen:720000, planCost:900000, actCost:880000, notes:"Champions active; usage climbing." },
+  { period:"Q3", planBen:1250000, actBen:1360000, planCost:900000, actCost:870000, notes:"Two functions live; attribution study done." },
+  { period:"Q4", planBen:1650000, actBen:1780000, planCost:900000, actCost:900000, notes:"Value ahead of plan." },
+]}; }
+
+let model = load(K_MODEL, null) || defaultModel();
+let tracker = load(K_TRK, null) || sampleTracker();
+let tab = "calc";
+const app = document.getElementById("app");
+
+function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch(e){ return d; } }
+function saveModel(){ try{ localStorage.setItem(K_MODEL, JSON.stringify(model)); }catch(e){} }
+function saveTracker(){ try{ localStorage.setItem(K_TRK, JSON.stringify(tracker)); }catch(e){} }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function num(v){ const n=parseFloat(String(v).replace(/[, ]/g,"")); return isNaN(n)?0:n; }
+function money(n){ const s=n<0?"\u2212":""; n=Math.abs(n);
+  if(n>=1e9) return s+"$"+(n/1e9).toFixed(2)+"B";
+  if(n>=1e6) return s+"$"+(n/1e6).toFixed(2)+"M";
+  if(n>=1e3) return s+"$"+Math.round(n/1e3)+"K";
+  return s+"$"+Math.round(n); }
+
+/* ---------------- model math ---------------- */
+function compute(m, o){
+  o = o || {};
+  const g = f => (o[f]!=null ? o[f] : m[f]);
+  const costMult = o.costMult!=null ? o.costMult : 1;
+  const active = g("users") * g("adoption")/100;
+  const grossAnnual = active * g("hours") * 52 * g("loaded");
+  const attributable = grossAnnual * g("attribution")/100;
+  const totalAnnualBenefit = attributable + g("otherBenefit");
+  const annualRecurring = (g("users")*g("licensePerUser") + g("infra") + g("support") + g("enablementAnnual")) * costMult;
+  const oneTime = g("oneTime") * costMult;
+  const H = Math.max(1, Math.round(g("horizon")));
+  const ramp = Math.max(1, g("ramp"));
+  const monthlyFull = totalAnnualBenefit/12;
+  const monthlyRecurring = annualRecurring/12;
+  let cc=oneTime, cb=0, be=null; const cost=[], ben=[];
+  for(let t=1;t<=H;t++){
+    cc += monthlyRecurring;
+    cb += monthlyFull*Math.min(1, t/ramp);
+    cost.push(cc); ben.push(cb);
+    if(be===null && cb>=cc) be=t;
+  }
+  const totalCost=cc, totalBenefit=cb, net=cb-cc, roi = cc>0 ? net/cc*100 : 0;
+  const unusedSeats = g("users")*(1-g("adoption")/100);
+  const unusedCost = unusedSeats*g("licensePerUser");
+  return {active,grossAnnual,attributable,totalAnnualBenefit,annualRecurring,oneTime,cost,ben,totalCost,totalBenefit,net,roi,breakeven:be,unusedSeats,unusedCost,H};
+}
+function roiWith(o){ return compute(model,o).roi; }
+
+/* ---------------- J-curve chart ---------------- */
+function jcurve(r){
+  const W=720,Hh=360,pl=64,pr=20,pt=20,pb=44, iw=W-pl-pr, ih=Hh-pt-pb;
+  const H=r.H, yMax=Math.max(r.totalCost,r.totalBenefit)*1.08 || 1;
+  const x=t=> pl + (t-0)/H*iw;
+  const y=v=> pt + ih - v/yMax*ih;
+  const line=(arr,color)=>{ let d=""; for(let i=0;i<arr.length;i++){ d+=(i?" L":"M")+x(i+1).toFixed(1)+" "+y(arr[i]).toFixed(1); } return '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round"/>'; };
+  let grid="", i;
+  for(i=0;i<=4;i++){ const v=yMax*i/4, yy=y(v);
+    grid+='<line x1="'+pl+'" y1="'+yy.toFixed(1)+'" x2="'+(W-pr)+'" y2="'+yy.toFixed(1)+'" stroke="#eef3fa"/>';
+    grid+='<text x="'+(pl-8)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-family="Inter,sans-serif" font-size="11" fill="#8a94a6">'+money(v)+'</text>';
+  }
+  let xt="";
+  for(i=0;i<=H;i+=6){ const xx=x(i); if(i===0) continue;
+    xt+='<text x="'+xx.toFixed(1)+'" y="'+(Hh-pb+18)+'" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#8a94a6">'+i+'</text>';
+    xt+='<line x1="'+xx.toFixed(1)+'" y1="'+pt+'" x2="'+xx.toFixed(1)+'" y2="'+(pt+ih)+'" stroke="#f4f7fb"/>';
+  }
+  let be="";
+  if(r.breakeven){ const bx=x(r.breakeven);
+    be='<line x1="'+bx.toFixed(1)+'" y1="'+pt+'" x2="'+bx.toFixed(1)+'" y2="'+(pt+ih)+'" stroke="#0a2540" stroke-width="1" stroke-dasharray="4 4"/>'+
+       '<text x="'+bx.toFixed(1)+'" y="'+(pt-6)+'" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#0a2540">Break-even, month '+r.breakeven+'</text>';
+  }
+  return '<svg class="chart" viewBox="0 0 '+W+' '+Hh+'" role="img" aria-label="Cumulative cost and benefit over time">'+
+    grid+xt+
+    '<line x1="'+pl+'" y1="'+(pt+ih)+'" x2="'+(W-pr)+'" y2="'+(pt+ih)+'" stroke="#cdd6e2"/>'+
+    line(r.cost,"#b06f12")+line(r.ben,"#0e9f8e")+be+
+    '<text x="'+(pl+iw/2)+'" y="'+(Hh-6)+'" text-anchor="middle" font-family="Inter,sans-serif" font-size="12" fill="#5a6472">Months</text>'+
+    '</svg>';
+}
+
+/* ---------------- tornado chart ---------------- */
+const TORNADO=[
+  {key:"adoption", label:"Adoption rate", lo:-0.30, hi:0.30},
+  {key:"hours", label:"Productivity per user", lo:-0.30, hi:0.30},
+  {key:"ramp", label:"Benefit timeline", lo:-0.40, hi:0.40},
+  {key:"attribution", label:"Attribution rate", lo:-0.20, hi:0.20},
+  {key:"tco", label:"Total cost of ownership", lo:-0.20, hi:0.20},
+  {key:"loaded", label:"Loaded hourly cost", lo:-0.10, hi:0.10},
+];
+function tornadoData(base){
+  return TORNADO.map(v=>{
+    let a,b;
+    if(v.key==="tco"){ a=roiWith({costMult:1+v.lo}); b=roiWith({costMult:1+v.hi}); }
+    else { a=roiWith({[v.key]: model[v.key]*(1+v.lo)}); b=roiWith({[v.key]: model[v.key]*(1+v.hi)}); }
+    const lo=Math.min(a,b), hi=Math.max(a,b);
+    return {label:v.label, lo, hi, span:hi-lo};
+  }).sort((x,y)=>y.span-x.span);
+}
+function tornado(base){
+  const rows=tornadoData(base);
+  const W=720, rh=42, pt=16, pb=40, pl=180, pr=30;
+  const Hh=pt+pb+rows.length*rh, iw=W-pl-pr;
+  let lo=base, hi=base; rows.forEach(r=>{ lo=Math.min(lo,r.lo); hi=Math.max(hi,r.hi); });
+  const pad=(hi-lo)*0.08||10; lo-=pad; hi+=pad;
+  const x=v=> pl + (v-lo)/(hi-lo)*iw;
+  let out='<svg class="chart" viewBox="0 0 '+W+' '+Hh+'" role="img" aria-label="ROI sensitivity by assumption">';
+  // axis ticks
+  for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, xx=x(v);
+    out+='<line x1="'+xx.toFixed(1)+'" y1="'+pt+'" x2="'+xx.toFixed(1)+'" y2="'+(Hh-pb)+'" stroke="#eef3fa"/>';
+    out+='<text x="'+xx.toFixed(1)+'" y="'+(Hh-pb+18)+'" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#8a94a6">'+Math.round(v)+'%</text>';
+  }
+  rows.forEach((r,i)=>{
+    const yy=pt+i*rh+rh/2, x1=x(r.lo), x2=x(r.hi);
+    out+='<text x="'+(pl-12)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-family="Inter,sans-serif" font-size="13" fill="#22374f">'+r.label+'</text>';
+    out+='<rect x="'+Math.min(x1,x2).toFixed(1)+'" y="'+(yy-11)+'" width="'+Math.abs(x2-x1).toFixed(1)+'" height="22" rx="4" fill="#7cb2f0"/>';
+    out+='<text x="'+(x1-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end" font-family="Inter,sans-serif" font-size="11" fill="#5a6472">'+Math.round(r.lo)+'%</text>';
+    out+='<text x="'+(x2+6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="start" font-family="Inter,sans-serif" font-size="11" fill="#5a6472">'+Math.round(r.hi)+'%</text>';
+  });
+  const bx=x(base);
+  out+='<line x1="'+bx.toFixed(1)+'" y1="'+pt+'" x2="'+bx.toFixed(1)+'" y2="'+(Hh-pb)+'" stroke="#0a2540" stroke-width="1.5" stroke-dasharray="4 4"/>';
+  out+='<text x="'+bx.toFixed(1)+'" y="'+(pt-2)+'" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#0a2540">Base '+Math.round(base)+'%</text>';
+  out+='</svg>';
+  return out;
+}
+
+/* ---------------- context strip ---------------- */
+function contextStrip(){
+  const aHist=load(K_A,[]); const b=load(K_B,null);
+  let parts=[];
+  if(Array.isArray(aHist)&&aHist.length){ const l=aHist[aHist.length-1]; parts.push('Appendix A maturity: <b>'+Math.round(l.compositePct)+'% '+esc(l.band||"")+'</b>'); }
+  let wau=null;
+  if(b&&Array.isArray(b.groups)){ b.groups.forEach(g=>g.metrics&&g.metrics.forEach(m=>{ if(/weekly active/i.test(m.label)) wau=num(m.value); })); }
+  if(wau!=null) parts.push('Appendix B weekly active users: <b>'+wau+'%</b>');
+  if(!parts.length) return "";
+  const useBtn = wau!=null ? '<button class="btn btn-ghost btn-small" data-use-wau="'+wau+'">Use '+wau+'% as adoption</button>' : '';
+  return '<div class="context-strip no-print">'+parts.join(" &middot; ")+useBtn+'</div>';
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  app.innerHTML =
+    contextStrip() +
+    '<div class="tabs no-print">'+
+      '<button data-tab="calc" class="'+(tab==="calc"?"active":"")+'">Value calculator</button>'+
+      '<button data-tab="track" class="'+(tab==="track"?"active":"")+'">Value tracker</button>'+
+    '</div>'+
+    '<div id="tabbody"></div>';
+  renderTab();
+  window.scrollTo({top:0});
+}
+function renderTab(){ document.getElementById("tabbody").innerHTML = tab==="calc" ? calcHtml() : trackHtml(); }
+
+/* ---- calculator ---- */
+function field(label,key,hint){ return '<div class="field"><label>'+label+(hint?' <span class="hint">'+hint+'</span>':'')+'</label>'+
+  '<input inputmode="decimal" data-k="'+key+'" value="'+esc(model[key])+'"></div>'; }
+function calcHtml(){
+  return '<div class="calc-grid"><section class="inputs">'+
+    '<div class="input-group"><h3>Program</h3>'+
+      field("Licensed (target) users","users")+
+      field("Adoption rate","adoption","% of target users active")+
+      field("Hours saved per active user / week","hours")+
+      field("Loaded hourly cost","loaded","$ per hour")+
+      field("Benefit attribution rate","attribution","% credited to AI")+
+      field("Other annual benefit","otherBenefit","$ already attributable")+
+      field("Analysis horizon","horizon","months")+
+      field("Months to full benefit","ramp","ramp")+
+    '</div>'+
+    '<div class="input-group"><h3>Costs</h3>'+
+      field("License cost per user / year","licensePerUser","$")+
+      field("Infrastructure / year","infra","$")+
+      field("Support / year","support","$")+
+      field("Ongoing enablement / year","enablementAnnual","$")+
+      field("One-time implementation & enablement","oneTime","$")+
+    '</div></section>'+
+    '<section id="results">'+resultsHtml()+'</section></div>';
+}
+function resultsHtml(){
+  const r=compute(model);
+  return '<div class="kpis">'+
+    '<div class="kpi hero"><div class="k">Return on investment ('+r.H+' months)</div><div class="v">'+Math.round(r.roi)+'%</div></div>'+
+    '<div class="kpi'+(r.net<0?" neg":"")+'"><div class="k">Net value</div><div class="v">'+money(r.net)+'</div></div>'+
+    '<div class="kpi"><div class="k">Payback</div><div class="v">'+(r.breakeven?("Month "+r.breakeven):"Not within horizon")+'</div></div>'+
+    '<div class="kpi"><div class="k">Total benefit</div><div class="v">'+money(r.totalBenefit)+'</div></div>'+
+    '<div class="kpi"><div class="k">Total cost</div><div class="v">'+money(r.totalCost)+'</div></div>'+
+    '<div class="kpi"><div class="k">Benefit at full run-rate</div><div class="v">'+money(r.totalAnnualBenefit)+'<small> / yr</small></div></div>'+
+  '</div>'+
+  '<p class="callout">You license <b>'+Math.round(model.users).toLocaleString()+'</b> seats but only <b>'+Math.round(r.active).toLocaleString()+'</b> are active at '+model.adoption+'% adoption. The '+Math.round(r.unusedSeats).toLocaleString()+' unused seats cost about <b>'+money(r.unusedCost)+'/year</b> — raising adoption is usually cheaper than buying value elsewhere.</p>'+
+  '<div class="chart-card"><h3>The investment J-curve</h3><p class="sub">Cumulative cost and benefit over the analysis horizon. Costs are front-loaded; benefits accrue as adoption ramps.</p>'+
+    jcurve(r)+
+    '<div class="legend"><span><i style="background:#b06f12"></i>Cumulative cost</span><span><i style="background:#0e9f8e"></i>Cumulative benefit</span></div></div>'+
+  '<div class="chart-card"><h3>ROI sensitivity</h3><p class="sub">How the '+r.H+'-month ROI moves when each assumption is varied across a plausible range, holding the others at base. The widest bars are where value is won or lost.</p>'+
+    tornado(r.roi)+'</div>'+
+  '<div class="dash-actions no-print">'+
+    '<button class="btn btn-ghost btn-small" data-act="print">Export to PDF</button>'+
+    '<button class="btn btn-ghost btn-small" data-act="json">Download JSON</button>'+
+    '<button class="btn btn-ghost btn-small" data-act="csv">Download J-curve CSV</button>'+
+    '<span class="grow" style="flex:1"></span>'+
+    '<button class="btn btn-ghost btn-small" data-act="reset-calc">Reset to defaults</button>'+
+  '</div>';
+}
+
+/* ---- tracker ---- */
+function trackTotals(){
+  let pb=0,ab=0,pc=0,ac=0; tracker.rows.forEach(r=>{ pb+=num(r.planBen);ab+=num(r.actBen);pc+=num(r.planCost);ac+=num(r.actCost); });
+  return {pb,ab,pc,ac, planNet:pb-pc, actNet:ab-ac};
+}
+function trackHtml(){
+  const t=trackTotals();
+  const rows=tracker.rows.map((r,i)=>{
+    const net=num(r.actBen)-num(r.actCost), plan=num(r.planBen)-num(r.planCost), v=net-plan;
+    return '<tr>'+
+      '<td><input data-t="'+i+'" data-f="period" value="'+esc(r.period)+'"></td>'+
+      '<td><input class="num" data-t="'+i+'" data-f="planBen" value="'+esc(r.planBen)+'"></td>'+
+      '<td><input class="num" data-t="'+i+'" data-f="actBen" value="'+esc(r.actBen)+'"></td>'+
+      '<td><input class="num" data-t="'+i+'" data-f="planCost" value="'+esc(r.planCost)+'"></td>'+
+      '<td><input class="num" data-t="'+i+'" data-f="actCost" value="'+esc(r.actCost)+'"></td>'+
+      '<td class="num '+(v>=0?"var-pos":"var-neg")+'">'+(v>=0?"+":"")+money(v)+'</td>'+
+      '<td><input data-t="'+i+'" data-f="notes" value="'+esc(r.notes)+'"></td>'+
+      '<td><button class="trk-rm" data-rm-row="'+i+'">Remove</button></td></tr>';
+  }).join("");
+  const v=t.actNet-t.planNet;
+  return '<p class="trk-intro">Log planned and actual benefit and cost each period to track value realization against the plan. Variance is actual net value minus planned net value; positive means you are ahead of plan.</p>'+
+    '<table class="trk-table"><thead><tr>'+
+      '<th>Period</th><th class="num">Planned benefit</th><th class="num">Actual benefit</th><th class="num">Planned cost</th><th class="num">Actual cost</th><th class="num">Net variance</th><th>Notes</th><th></th>'+
+    '</tr></thead><tbody id="trkbody">'+rows+'</tbody>'+
+    '<tfoot><tr><td>Total</td>'+
+      '<td class="num">'+money(t.pb)+'</td><td class="num">'+money(t.ab)+'</td>'+
+      '<td class="num">'+money(t.pc)+'</td><td class="num">'+money(t.ac)+'</td>'+
+      '<td class="num '+(v>=0?"var-pos":"var-neg")+'">'+(v>=0?"+":"")+money(v)+'</td><td colspan="2"></td></tr></tfoot>'+
+    '</table>'+
+    '<div class="dash-actions no-print">'+
+      '<button class="btn btn-primary btn-small" data-act="add-row">Add period</button>'+
+      '<button class="btn btn-ghost btn-small" data-act="print">Export to PDF</button>'+
+      '<button class="btn btn-ghost btn-small" data-act="csv-track">Download CSV</button>'+
+      '<span class="grow" style="flex:1"></span>'+
+      '<button class="btn btn-ghost btn-small" data-act="reset-track">Reset to sample</button>'+
+    '</div>';
+}
+
+/* ---------------- exports ---------------- */
+function download(name,text,type){ const b=new Blob([text],{type}),u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u;a.download=name;a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); }
+function calcCsv(){ const r=compute(model); const rows=[["Month","Cumulative cost","Cumulative benefit","Cumulative net"]];
+  for(let i=0;i<r.cost.length;i++) rows.push([i+1, Math.round(r.cost[i]), Math.round(r.ben[i]), Math.round(r.ben[i]-r.cost[i])]);
+  return rows.map(x=>x.join(",")).join("\r\n"); }
+function trackCsv(){ const rows=[["Period","Planned benefit","Actual benefit","Planned cost","Actual cost","Net variance","Notes"]];
+  tracker.rows.forEach(r=>{ const v=(num(r.actBen)-num(r.actCost))-(num(r.planBen)-num(r.planCost));
+    rows.push([r.period,num(r.planBen),num(r.actBen),num(r.planCost),num(r.actCost),Math.round(v),'"'+String(r.notes||"").replace(/"/g,'""')+'"']); });
+  return rows.map(x=>x.join(",")).join("\r\n"); }
+
+/* ---------------- events ---------------- */
+app.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.dataset.k){ model[t.dataset.k]=num(t.value); saveModel(); document.getElementById("results").innerHTML=resultsHtml(); return; }
+  if(t.dataset.t!==undefined){ const f=t.dataset.f; tracker.rows[+t.dataset.t][f] = (f==="period"||f==="notes")? t.value : num(t.value); saveTracker();
+    // refresh footer + variance cells without rebuilding row inputs
+    const body=document.getElementById("trkbody"); if(body){ /* update variance + totals via light re-render of tfoot */ }
+    refreshTrackerTotals(); return; }
+});
+function refreshTrackerTotals(){
+  // re-render only the tfoot and per-row variance by re-rendering the table body variance cells
+  const rows=[...document.querySelectorAll("#trkbody tr")];
+  rows.forEach((tr,i)=>{ const r=tracker.rows[i]; const v=(num(r.actBen)-num(r.actCost))-(num(r.planBen)-num(r.planCost));
+    const cell=tr.children[5]; if(cell){ cell.className="num "+(v>=0?"var-pos":"var-neg"); cell.textContent=(v>=0?"+":"")+money(v); } });
+  const t=trackTotals(), v=t.actNet-t.planNet;
+  const tf=document.querySelector(".trk-table tfoot tr");
+  if(tf){ tf.children[1].textContent=money(t.pb); tf.children[2].textContent=money(t.ab); tf.children[3].textContent=money(t.pc); tf.children[4].textContent=money(t.ac);
+    tf.children[5].className="num "+(v>=0?"var-pos":"var-neg"); tf.children[5].textContent=(v>=0?"+":"")+money(v); }
+}
+app.addEventListener("click", e=>{
+  const tb=e.target.closest("[data-tab]"); if(tb){ tab=tb.dataset.tab; render(); return; }
+  const uw=e.target.closest("[data-use-wau]"); if(uw){ model.adoption=num(uw.dataset.useWau); saveModel(); tab="calc"; render(); return; }
+  const rm=e.target.closest("[data-rm-row]"); if(rm){ tracker.rows.splice(+rm.dataset.rmRow,1); saveTracker(); renderTab(); return; }
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  const a=b.dataset.act;
+  if(a==="print") window.print();
+  else if(a==="json") download("value-model.json", JSON.stringify({model,tracker},null,2), "application/json");
+  else if(a==="csv") download("value-jcurve.csv", calcCsv(), "text/csv");
+  else if(a==="csv-track") download("value-tracker.csv", trackCsv(), "text/csv");
+  else if(a==="add-row") { tracker.rows.push({period:"Q"+(tracker.rows.length+1),planBen:0,actBen:0,planCost:0,actCost:0,notes:""}); saveTracker(); renderTab(); }
+  else if(a==="reset-calc"){ if(confirm("Reset the calculator inputs to defaults?")){ model=defaultModel(); saveModel(); renderTab(); } }
+  else if(a==="reset-track"){ if(confirm("Replace the tracker with the sample data?")){ tracker=sampleTracker(); saveTracker(); renderTab(); } }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Monthly Report — Appendix C</title>
+<meta name="description" content="Editable monthly reporting templates for AI agents — usage, quality, incidents, governance, and lifecycle — from the book From Deployment to Transformation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="book" href="../index.html">From Deployment to Transformation <span>· companion tools</span></a>
+    <nav><a href="../index.html">All tools</a></nav>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="wrap">
+    <div id="app"></div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Appendix C · companion to <em>From Deployment to Transformation</em> by Mohan Krishnamurthy · Leomohan Publications</span>
+    <span>Your reports are saved in this browser. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+const K = "aiagentrep.portfolio.v1";
+
+const RISK = { low:"Low", medium:"Medium", high:"High" };
+const HEALTH = { healthy:["is-ontrack","Healthy"], watch:["is-atrisk","Watch"], atrisk:["is-offtrack","At risk"] };
+const STAGES = ["Launch","Expansion","Optimization","Retirement"];
+const RECOS = ["Continue","Expand","Optimize","Retire"];
+const SEV = { low:"Low", medium:"Medium", high:"High" };
+const INC_STATUS = ["Open","Monitoring","Resolved"];
+
+function sample(){ return { selected:0, agents:[
+  {
+    name:"Support Copilot", owner:"Customer Service Operations", func:"Customer Service",
+    month:"September 2026", riskTier:"medium", stage:"Expansion", health:"healthy",
+    summary:"Support Copilot continued its steady expansion across the service organization. Deflection and satisfaction both improved, and a single minor latency incident was resolved the same day. The agent is recommended for continued expansion to the remaining regional teams.",
+    groups:[
+      { title:"Usage and adoption", metrics:[
+        {label:"Active users", value:"420", unit:"", delta:"+8% vs last month", dir:"up"},
+        {label:"Weekly sessions", value:"6,100", unit:"", delta:"+12% vs last month", dir:"up"},
+        {label:"Adoption of target users", value:"71", unit:"%", delta:"+6 pts vs last month", dir:"up"},
+      ]},
+      { title:"Quality and performance", metrics:[
+        {label:"Deflection rate", value:"46", unit:"%", delta:"+4 pts vs last month", dir:"up"},
+        {label:"Satisfaction (CSAT)", value:"4.3", unit:"/5", delta:"+0.2 vs last month", dir:"up"},
+        {label:"Escalation to human", value:"12", unit:"%", delta:"down 2 pts (better)", dir:"up"},
+        {label:"Avg response time", value:"2.4", unit:"s", delta:"faster by 0.3s", dir:"up"},
+      ]},
+      { title:"Business outcomes", metrics:[
+        {label:"Hours saved", value:"3,200", unit:"/month", delta:"+15% vs last month", dir:"up"},
+        {label:"Cost impact", value:"$240K", unit:"est. / yr", delta:"+15% vs last month", dir:"up"},
+      ]},
+    ],
+    incidents:[
+      {date:"Sep 9", severity:"low", summary:"Elevated latency during a scheduled model-update window.", status:"Resolved"},
+    ],
+    controls:[
+      {label:"Named owner assigned", on:true},
+      {label:"Usage logged and monitored", on:true},
+      {label:"Monthly accuracy and quality check", on:true},
+      {label:"Human review for sensitive outputs", on:true},
+      {label:"Documented escalation path", on:true},
+    ],
+    recommendation:"Expand",
+    nextSteps:"Roll out to the remaining two regional teams; add a post-interaction satisfaction survey; review the risk tier at the next quarterly governance meeting."
+  },
+  {
+    name:"Finance Reporting Agent", owner:"Finance Transformation", func:"Finance",
+    month:"September 2026", riskTier:"high", stage:"Optimization", health:"watch",
+    summary:"The Finance Reporting Agent remains under close watch. An accuracy regression in variance commentary was detected and contained; mandatory human review held, and no incorrect figures reached stakeholders. Optimization work is underway before any further expansion.",
+    groups:[
+      { title:"Usage and adoption", metrics:[
+        {label:"Active users", value:"85", unit:"", delta:"No change vs last month", dir:"flat"},
+        {label:"Reports generated", value:"640", unit:"", delta:"+5% vs last month", dir:"up"},
+        {label:"Adoption of target users", value:"58", unit:"%", delta:"+3 pts vs last month", dir:"up"},
+      ]},
+      { title:"Quality and performance", metrics:[
+        {label:"Accuracy score", value:"92", unit:"%", delta:"down 3 pts (worse)", dir:"down"},
+        {label:"Human review rate", value:"100", unit:"%", delta:"No change vs last month", dir:"flat"},
+        {label:"Error rate", value:"1.8", unit:"%", delta:"up 0.6 pts (worse)", dir:"down"},
+        {label:"Avg turnaround", value:"6", unit:"min", delta:"faster by 1 min", dir:"up"},
+      ]},
+      { title:"Business outcomes", metrics:[
+        {label:"Analyst hours saved", value:"900", unit:"/month", delta:"+4% vs last month", dir:"up"},
+        {label:"Cost impact", value:"$120K", unit:"est. / yr", delta:"No change vs last month", dir:"flat"},
+      ]},
+    ],
+    incidents:[
+      {date:"Sep 3", severity:"high", summary:"Accuracy regression in variance commentary after a model update; contained by mandatory human review before release.", status:"Resolved"},
+      {date:"Sep 22", severity:"medium", summary:"Formatting drift in exported tables.", status:"Monitoring"},
+    ],
+    controls:[
+      {label:"Named owner assigned", on:true},
+      {label:"Mandatory human review for every output", on:true},
+      {label:"Ongoing accuracy monitoring", on:true},
+      {label:"Formal pre-deployment approval", on:true},
+      {label:"Regular fairness and bias review", on:false},
+    ],
+    recommendation:"Optimize",
+    nextSteps:"Complete accuracy tuning and re-baseline before any expansion; schedule the outstanding fairness review; keep human review at 100% until two clean months."
+  },
+]}; }
+
+let port = load() || sample();
+let editing = false;
+const app = document.getElementById("app");
+
+function load(){ try{ return JSON.parse(localStorage.getItem(K)); }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(K, JSON.stringify(port)); }catch(e){} }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function cur(){ return port.agents[port.selected]; }
+
+/* ---------- pieces ---------- */
+function healthPill(h){ const [c,l]=HEALTH[h]||HEALTH.healthy; return `<span class="pill ${c}"><span class="dot"></span>${l}</span>`; }
+function riskBadge(r){ return `<span class="badge badge-risk-${esc(r)}"><span class="k">Risk</span>${RISK[r]||"—"}</span>`; }
+function stageBadge(s){ return `<span class="badge badge-stage"><span class="k">Stage</span>${esc(s)}</span>`; }
+function deltaHtml(m){ const a=m.dir==="up"?"&#9650;":m.dir==="down"?"&#9660;":"&#8212;"; return `<span class="delta ${esc(m.dir||"flat")}">${a} ${esc(m.delta||"")}</span>`; }
+
+function agentBar(){
+  const highRisk = port.agents.filter(a=>a.riskTier==="high").length;
+  const attention = port.agents.filter(a=>a.health!=="healthy").length;
+  return `<div class="agentbar no-print">
+    ${port.agents.map((a,i)=>{
+      const col=(HEALTH[a.health]||HEALTH.healthy)[0];
+      const dot=col==="is-ontrack"?"#0e9f8e":col==="is-atrisk"?"#b06f12":"#a8402f";
+      return `<button class="agent-chip ${i===port.selected?"active":""}" data-sel="${i}"><span class="hdot" style="background:${dot}"></span>${esc(a.name)}</button>`;
+    }).join("")}
+    <button class="add-agent" data-add-agent>+ Add agent</button>
+    <span class="port-sum">${port.agents.length} agent${port.agents.length!==1?"s":""} &middot; ${highRisk} high-risk &middot; ${attention} need attention</span>
+  </div>`;
+}
+
+/* ---------- view ---------- */
+function renderView(){
+  const a=cur();
+  app.innerHTML = agentBar() + `
+    <div class="report-head">
+      <div>
+        <h1 class="display">${esc(a.name)}</h1>
+        <div class="rmeta">Monthly report &middot; ${esc(a.month)} &middot; ${esc(a.func)} &middot; owner: ${esc(a.owner)}</div>
+      </div>
+      ${healthPill(a.health)}
+    </div>
+    <div class="badges">${riskBadge(a.riskTier)}${stageBadge(a.stage)}</div>
+    <p class="rsummary">${esc(a.summary)}</p>
+
+    ${a.groups.map(g=>`
+      <h3 class="section-h">${esc(g.title)}</h3>
+      <div class="metric-grid">
+        ${g.metrics.map(m=>`
+          <div class="metric">
+            <div class="mlabel">${esc(m.label)}</div>
+            <div class="mval">${esc(m.value)}${m.unit?`<span class="unit">${esc(m.unit)}</span>`:""}</div>
+            <div class="mfoot">${deltaHtml(m)}</div>
+          </div>`).join("")}
+      </div>`).join("")}
+
+    <h3 class="section-h">Incidents this month</h3>
+    ${a.incidents.length ? `<table class="inc-table"><thead><tr><th>Date</th><th>Severity</th><th>Summary</th><th>Status</th></tr></thead><tbody>
+      ${a.incidents.map(x=>`<tr><td>${esc(x.date)}</td><td class="sev sev-${esc(x.severity)}">${SEV[x.severity]||"—"}</td><td>${esc(x.summary)}</td><td class="inc-status">${esc(x.status)}</td></tr>`).join("")}
+    </tbody></table>` : `<p class="empty-line">No incidents recorded this month.</p>`}
+
+    <h3 class="section-h">Risk and governance controls</h3>
+    <ul class="controls">
+      ${a.controls.map(c=>`<li class="${c.on?"on":"off"}"><span class="box">${c.on?"&#10003;":""}</span>${esc(c.label)}</li>`).join("")}
+    </ul>
+
+    <h3 class="section-h">Lifecycle and recommendation</h3>
+    <div class="reco"><h4>${esc(a.recommendation)} &middot; currently in ${esc(a.stage)}</h4><p>${esc(a.nextSteps)}</p></div>
+
+    <div class="dash-actions no-print">
+      <button class="btn btn-primary btn-small" data-act="edit">Edit report</button>
+      <button class="btn btn-ghost btn-small" data-act="print">Export to PDF</button>
+      <button class="btn btn-ghost btn-small" data-act="json">Download JSON</button>
+      <button class="btn btn-ghost btn-small" data-act="csv">Download portfolio CSV</button>
+      <label class="btn btn-ghost btn-small" style="cursor:pointer">Import JSON<input type="file" accept="application/json,.json" id="importFile" hidden></label>
+      <span class="grow" style="flex:1"></span>
+      <button class="btn btn-ghost btn-small" data-act="reset">Reset to sample</button>
+    </div>
+    <p class="saved-msg no-print" id="msg"></p>`;
+}
+
+/* ---------- editor ---------- */
+function fieldInput(label,attr,val,ta){ return `<div class="field"><label>${label}</label>${ta?`<textarea ${attr}>${esc(val)}</textarea>`:`<input ${attr} value="${esc(val)}">`}</div>`; }
+function sel(attr,opts,val){ return `<select ${attr}>${opts.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;return `<option value="${esc(v)}" ${v===val?"selected":""}>${esc(l)}</option>`;}).join("")}</select>`; }
+
+function renderEditor(){
+  const a=cur();
+  app.innerHTML = agentBar() + `
+    <div class="report-head">
+      <div class="dash-title"><h1 class="display">Edit report</h1>
+      <div class="rmeta">Changes save automatically in this browser.</div></div>
+      <button class="btn btn-primary btn-small" data-act="done">Done editing</button>
+    </div>
+
+    <div class="editrow">
+      ${fieldInput("Agent name",'data-a="name"',a.name)}
+      ${fieldInput("Reporting month",'data-a="month"',a.month)}
+    </div>
+    <div class="editrow">
+      ${fieldInput("Business function",'data-a="func"',a.func)}
+      ${fieldInput("Owner",'data-a="owner"',a.owner)}
+    </div>
+    <div class="editrow">
+      <div class="field"><label>Risk tier</label>${sel('data-a="riskTier"',[["low","Low"],["medium","Medium"],["high","High"]],a.riskTier)}</div>
+      <div class="field"><label>Lifecycle stage</label>${sel('data-a="stage"',STAGES,a.stage)}</div>
+    </div>
+    <div class="editrow">
+      <div class="field"><label>Health</label>${sel('data-a="health"',[["healthy","Healthy"],["watch","Watch"],["atrisk","At risk"]],a.health)}</div>
+      <div class="field"><label>Recommendation</label>${sel('data-a="recommendation"',RECOS,a.recommendation)}</div>
+    </div>
+    ${fieldInput("Executive summary",'data-a="summary"',a.summary,true)}
+
+    ${a.groups.map((g,gi)=>`
+      <h3 class="section-h">${esc(g.title)}</h3>
+      <div class="grouptop"><div class="field"><label>Section title</label><input data-g="${gi}" data-gf="title" value="${esc(g.title)}"></div></div>
+      <div class="metric-grid">
+        ${g.metrics.map((m,mi)=>`
+          <div class="metric editing">
+            ${fieldInput("Label",`data-g="${gi}" data-m="${mi}" data-f="label"`,m.label)}
+            <div class="editrow">
+              ${fieldInput("Value",`data-g="${gi}" data-m="${mi}" data-f="value"`,m.value)}
+              ${fieldInput("Unit",`data-g="${gi}" data-m="${mi}" data-f="unit"`,m.unit)}
+            </div>
+            <div class="editrow">
+              ${fieldInput("Change note",`data-g="${gi}" data-m="${mi}" data-f="delta"`,m.delta)}
+              <div class="field"><label>Direction</label>${sel(`data-g="${gi}" data-m="${mi}" data-f="dir"`,[["up","Up / better"],["flat","Flat"],["down","Down / worse"]],m.dir)}</div>
+            </div>
+            <button class="rm" data-rm-metric data-g="${gi}" data-m="${mi}">Remove metric</button>
+          </div>`).join("")}
+        <button class="addmetric" data-add-metric="${gi}">+ Add metric</button>
+      </div>`).join("")}
+
+    <h3 class="section-h">Incidents this month</h3>
+    ${a.incidents.map((x,ii)=>`
+      <div class="inc-edit">
+        <div class="field"><label>Date</label><input data-i="${ii}" data-if="date" value="${esc(x.date)}"></div>
+        <div class="field"><label>Severity</label>${sel(`data-i="${ii}" data-if="severity"`,[["low","Low"],["medium","Medium"],["high","High"]],x.severity)}</div>
+        <div class="field"><label>Summary</label><input data-i="${ii}" data-if="summary" value="${esc(x.summary)}"></div>
+        <div class="field"><label>Status</label>${sel(`data-i="${ii}" data-if="status"`,INC_STATUS,x.status)}</div>
+        <button class="rm" data-rm-inc="${ii}">Remove</button>
+      </div>`).join("")}
+    <button class="addmetric" data-add-inc style="max-width:200px">+ Add incident</button>
+
+    <h3 class="section-h">Risk and governance controls</h3>
+    ${a.controls.map((c,ci)=>`
+      <div class="ctrl-edit">
+        <input type="checkbox" data-c="${ci}" ${c.on?"checked":""} aria-label="Control in place">
+        <input data-cl="${ci}" value="${esc(c.label)}">
+        <button class="rm" data-rm-ctrl="${ci}">Remove</button>
+      </div>`).join("")}
+    <button class="addmetric" data-add-ctrl style="max-width:200px">+ Add control</button>
+
+    <h3 class="section-h">Recommendation and next steps</h3>
+    ${fieldInput("Next steps",'data-a="nextSteps"',a.nextSteps,true)}
+
+    <div class="dash-actions">
+      <button class="btn btn-primary btn-small" data-act="done">Done editing</button>
+      ${port.agents.length>1?`<button class="btn btn-ghost btn-small" data-act="remove-agent">Remove this agent</button>`:""}
+      <button class="btn btn-ghost btn-small" data-act="reset">Reset to sample</button>
+    </div>`;
+}
+
+function render(){ editing?renderEditor():renderView(); window.scrollTo({top:0}); }
+
+/* ---------- exports ---------- */
+function download(name,text,type){ const b=new Blob([text],{type}),u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u;a.download=name;a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); }
+function toCsv(){
+  const rows=[["Agent","Owner","Function","Risk tier","Lifecycle stage","Health","Month","Recommendation","Open incidents"]];
+  port.agents.forEach(a=>{
+    const open=a.incidents.filter(x=>x.status!=="Resolved").length;
+    rows.push([a.name,a.owner,a.func,RISK[a.riskTier],a.stage,(HEALTH[a.health]||["","?"])[1],a.month,a.recommendation,open]);
+  });
+  return rows.map(r=>r.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+}
+function msg(t){ const m=document.getElementById("msg"); if(m) m.textContent=t; }
+function blankAgent(){ return { name:"New agent", owner:"", func:"", month:"", riskTier:"low", stage:"Launch", health:"healthy",
+  summary:"", groups:[{title:"Usage and adoption",metrics:[]},{title:"Quality and performance",metrics:[]},{title:"Business outcomes",metrics:[]}],
+  incidents:[], controls:[{label:"Named owner assigned",on:false}], recommendation:"Continue", nextSteps:"" }; }
+
+/* ---------- events ---------- */
+app.addEventListener("input", e=>{
+  const t=e.target, a=cur();
+  if(t.dataset.a!==undefined){ a[t.dataset.a]=t.value; save(); return; }
+  if(t.dataset.g!==undefined && t.dataset.gf){ a.groups[+t.dataset.g][t.dataset.gf]=t.value; save(); return; }
+  if(t.dataset.g!==undefined && t.dataset.f){ a.groups[+t.dataset.g].metrics[+t.dataset.m][t.dataset.f]=t.value; save(); return; }
+  if(t.dataset.i!==undefined && t.dataset.if){ a.incidents[+t.dataset.i][t.dataset.if]=t.value; save(); return; }
+  if(t.dataset.cl!==undefined){ a.controls[+t.dataset.cl].label=t.value; save(); return; }
+});
+app.addEventListener("change", e=>{
+  const t=e.target, a=cur();
+  if(t.dataset.c!==undefined){ a.controls[+t.dataset.c].on=t.checked; save(); return; }
+  const f=t.closest("#importFile");
+  if(f && f.files && f.files[0]){
+    const r=new FileReader();
+    r.onload=()=>{ try{ const d=JSON.parse(r.result);
+        if(d && Array.isArray(d.agents)){ port=d; if(port.selected==null||port.selected>=port.agents.length) port.selected=0; save(); render(); msg("Portfolio imported."); }
+        else msg("That file does not look like an agent-report export.");
+      }catch(err){ msg("Could not read that file."); } };
+    r.readAsText(f.files[0]);
+  }
+});
+app.addEventListener("click", e=>{
+  const a=cur();
+  const sel=e.target.closest("[data-sel]"); if(sel){ port.selected=+sel.dataset.sel; save(); render(); return; }
+  if(e.target.closest("[data-add-agent]")){ port.agents.push(blankAgent()); port.selected=port.agents.length-1; save(); editing=true; render(); return; }
+  const rmM=e.target.closest("[data-rm-metric]"); if(rmM){ a.groups[+rmM.dataset.g].metrics.splice(+rmM.dataset.m,1); save(); renderEditor(); return; }
+  const addM=e.target.closest("[data-add-metric]"); if(addM){ a.groups[+addM.dataset.addMetric].metrics.push({label:"New metric",value:"0",unit:"",delta:"",dir:"flat"}); save(); renderEditor(); return; }
+  const rmI=e.target.closest("[data-rm-inc]"); if(rmI){ a.incidents.splice(+rmI.dataset.rmInc,1); save(); renderEditor(); return; }
+  if(e.target.closest("[data-add-inc]")){ a.incidents.push({date:"",severity:"low",summary:"",status:"Open"}); save(); renderEditor(); return; }
+  const rmC=e.target.closest("[data-rm-ctrl]"); if(rmC){ a.controls.splice(+rmC.dataset.rmCtrl,1); save(); renderEditor(); return; }
+  if(e.target.closest("[data-add-ctrl]")){ a.controls.push({label:"New control",on:false}); save(); renderEditor(); return; }
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  const act=b.dataset.act;
+  if(act==="edit"){ editing=true; render(); }
+  else if(act==="done"){ editing=false; render(); }
+  else if(act==="print"){ window.print(); }
+  else if(act==="json"){ download("ai-agent-reports.json", JSON.stringify(port,null,2), "application/json"); }
+  else if(act==="csv"){ download("ai-agent-portfolio.csv", toCsv(), "text/csv"); }
+  else if(act==="remove-agent"){ if(port.agents.length>1 && confirm("Remove this agent from the portfolio?")){ port.agents.splice(port.selected,1); port.selected=0; save(); editing=false; render(); } }
+  else if(act==="reset"){ if(confirm("Replace the whole portfolio with the sample?")){ port=sample(); save(); editing=false; render(); } }
+});
+
+render();
+</script>
+</body>
+</html>

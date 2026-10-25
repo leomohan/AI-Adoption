@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Adoption Maturity Assessment — Appendix A</title>
+<meta name="description" content="A 50-question AI adoption maturity self-assessment across five weighted dimensions, from the book From Deployment to Transformation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="book" href="../index.html">From Deployment to Transformation <span>· companion tools</span></a>
+    <nav><a href="../index.html">All tools</a></nav>
+  </div>
+</header>
+
+<main class="assess">
+  <div class="wrap">
+    <div id="app" aria-live="polite"></div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Appendix A · companion to <em>From Deployment to Transformation</em> by Mohan Krishnamurthy · Leomohan Publications</span>
+    <span>Your answers stay in this browser. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* ---------------- model ---------------- */
+const DIMS = [
+  { key:"leadership", label:"Leadership", weight:0.20,
+    focus:"Vision, sponsorship, and active involvement",
+    advice:"Name one senior owner for adoption outcomes and put AI progress on the leadership agenda with defined metrics. Visible executive use of the tools matters more than sponsorship on paper." },
+  { key:"adoption", label:"Adoption", weight:0.25,
+    focus:"Change readiness and user onboarding",
+    advice:"Invest in role-specific onboarding, a tiered enablement program, and an active champion network — and manage adoption after launch, not just at it." },
+  { key:"usage", label:"Usage", weight:0.20,
+    focus:"Depth and breadth of AI tool usage",
+    advice:"Move past early adopters: embed AI in standard workflows, track engagement depth rather than logins, and keep a prioritized pipeline of new use cases." },
+  { key:"productivity", label:"Productivity", weight:0.20,
+    focus:"Measurable efficiency and business outcomes",
+    advice:"Measure impact against a baseline with more than self-reported estimates, attribute outcomes credibly, and tie total cost of ownership to a defensible ROI." },
+  { key:"governance", label:"Governance", weight:0.15,
+    focus:"Policies, risk management, and responsible AI",
+    advice:"Classify use cases by risk tier with matched controls, require human review for high-risk decisions, and stand up an incident-response process before you need it." },
+];
+
+const QUESTIONS = [
+  // Leadership
+  ["leadership","Our senior executives have articulated a clear, written vision for how AI will create value."],
+  ["leadership","A named senior leader is formally accountable for AI adoption outcomes, not just AI technology."],
+  ["leadership","Executives actively use AI tools themselves, rather than only sponsoring them for others."],
+  ["leadership","AI goals are tied to business objectives and reviewed in senior leadership meetings."],
+  ["leadership","Funding for AI is treated as a multi-year investment, not a one-off pilot budget."],
+  ["leadership","Leaders communicate about AI consistently over time, not only at launch."],
+  ["leadership","Middle managers are equipped and expected to drive AI adoption within their teams."],
+  ["leadership","Leadership sets realistic expectations about timelines, understanding value accrues over 12 to 18 months."],
+  ["leadership","Decision rights for AI — who approves, owns, and funds — are clearly defined."],
+  ["leadership","Leadership reviews AI progress against defined success metrics at least quarterly."],
+  // Adoption
+  ["adoption","We ran a structured readiness assessment before rolling AI out to employees."],
+  ["adoption","New users receive role-specific onboarding, not just a generic launch announcement."],
+  ["adoption","We have an active AI champion network embedded across business units."],
+  ["adoption","Our enablement program has tiered tracks (awareness, standard, advanced) for different users."],
+  ["adoption","Employees understand why AI is being introduced and what it means for their work."],
+  ["adoption","We use a recognized change-management approach (such as ADKAR) for AI adoption."],
+  ["adoption","Feedback channels let employees raise issues and shape how AI tools are used."],
+  ["adoption","Adoption is actively managed after launch, with a named owner for ongoing engagement."],
+  ["adoption","We address concerns about AI — job security, trust — openly and proactively."],
+  ["adoption","License and seat utilization is tracked, and we act on it when it lags."],
+  // Usage
+  ["usage","A majority of licensed users are active on AI tools on a weekly basis."],
+  ["usage","AI use has spread beyond early adopters to the general employee population."],
+  ["usage","Employees use AI for core workflow tasks, not just occasional experiments."],
+  ["usage","AI is embedded into standard operating procedures for key processes."],
+  ["usage","We track engagement depth (session depth, feature adoption), not just logins."],
+  ["usage","Multiple business functions — not just one or two — have meaningful AI use cases live."],
+  ["usage","Usage is growing over time rather than plateauing after launch."],
+  ["usage","We maintain a prioritized pipeline of new AI use cases."],
+  ["usage","Power users and champions build or configure their own AI solutions or agents."],
+  ["usage","We rework or retire AI use cases that show low usage or value."],
+  // Productivity
+  ["productivity","We have defined outcome metrics for AI, such as cycle time, cost, or revenue influence."],
+  ["productivity","We measure AI's impact with more than self-reported estimates (before/after or controlled comparison)."],
+  ["productivity","We can attribute specific business outcomes to AI with reasonable confidence."],
+  ["productivity","Time or cost savings from AI are quantified and reported to leadership."],
+  ["productivity","AI productivity gains are validated against a baseline, not assumed."],
+  ["productivity","We track a measurement hierarchy: adoption, then engagement, then outcomes."],
+  ["productivity","Business stakeholders trust our AI impact numbers."],
+  ["productivity","We understand the total cost of ownership: licenses, infrastructure, enablement, and support."],
+  ["productivity","We have calculated ROI, or a credible estimate, for our AI investment."],
+  ["productivity","Productivity results are used to decide where to expand or cut AI investment."],
+  // Governance
+  ["governance","We have a written, communicated employee AI usage policy."],
+  ["governance","AI use cases are classified by risk tier, with controls matched to each tier."],
+  ["governance","High-risk AI decisions (such as hiring or credit) require mandatory human review."],
+  ["governance","We have an AI incident-response process: detect, contain, assess, communicate, review."],
+  ["governance","AI outputs are monitored for accuracy, drift, and fairness over time."],
+  ["governance","There is a defined approval path before a new AI use case goes live."],
+  ["governance","We maintain an inventory of AI agents and tools, each with a named owner."],
+  ["governance","Responsible-AI principles are documented and applied in practice."],
+  ["governance","We manage the full lifecycle of AI agents: launch, expansion, optimization, retirement."],
+  ["governance","Governance keeps pace with adoption rather than lagging behind it."],
+].map((q,i)=>({ id:"q"+(i+1), dim:q[0], text:q[1] }));
+
+const BANDS = [
+  { name:"Early",      min:0,  color:"#8a94a6", say:"Your program is in its earliest stage. The foundations — sponsorship, enablement, and measurement — are not yet consistently in place." },
+  { name:"Developing", min:40, color:"#3f97a6", say:"Your program is developing. Some dimensions are taking hold, but the practice is not yet even across the organization." },
+  { name:"Advancing",  min:60, color:"#2563eb", say:"Your program is advancing. Adoption and value are real; the gaps are now specific rather than systemic." },
+  { name:"Mature",     min:80, color:"#0a2540", say:"Your program is mature. AI is embedded, measured, and governed — the work now is to sustain and extend it." },
+];
+const LEVELS = [
+  { max:1.8, name:"Initial" }, { max:2.6, name:"Developing" },
+  { max:3.4, name:"Defined" }, { max:4.2, name:"Managed" }, { max:Infinity, name:"Optimized" },
+];
+const SCALE = ["Not in place","","Partly in place","","Fully in place"];
+
+const K_ANS = "aima.answers.v1";
+const K_HIST = "aima.history.v1";
+
+/* ---------------- state ---------------- */
+let answers = load(K_ANS, {});
+let view = "intro"; // 'intro' | 0..4 | 'results'
+const app = document.getElementById("app");
+
+function load(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function answeredCount(){ return QUESTIONS.filter(q=>answers[q.id]).length; }
+function dimQuestions(key){ return QUESTIONS.filter(q=>q.dim===key); }
+
+/* ---------------- scoring ---------------- */
+function score(){
+  const dims = DIMS.map(d=>{
+    const qs = dimQuestions(d.key);
+    const vals = qs.map(q=>answers[q.id]).filter(Boolean);
+    const raw = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    const pct = raw/5*100;
+    const level = LEVELS.find(l=>raw<=l.max).name;
+    return { ...d, raw, pct, level };
+  });
+  const compositePct = dims.reduce((a,d)=>a + d.pct*d.weight, 0);
+  const band = [...BANDS].reverse().find(b=>compositePct>=b.min);
+  return { dims, compositePct, band };
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  if(view==="intro") return renderIntro();
+  if(view==="results") return renderResults();
+  return renderStep(view);
+}
+
+function renderIntro(){
+  const n = answeredCount();
+  const resume = n>0 && n<QUESTIONS.length;
+  const done = n===QUESTIONS.length;
+  app.innerHTML = `
+    <div class="intro">
+      <h1 class="display">How mature is your AI adoption?</h1>
+      <p class="lede">Fifty statements, ten for each of the five dimensions the book uses to judge an AI program. Rate how true each is of your organization today. You'll get a weighted maturity score, a dimension radar, and the two areas worth your attention next.</p>
+      <div class="dims">
+        ${DIMS.map(d=>`<div><div class="dname">${d.label}</div><div class="dweight">weight ${Math.round(d.weight*100)}% · ${esc(d.focus)}</div></div>`).join("")}
+      </div>
+      <p class="note">This takes about ten minutes. Answer candidly — the assessment is only useful if it is honest. Everything is scored in your browser and saved only on this device; nothing is uploaded.</p>
+      <div class="actions">
+        ${resume
+          ? `<button class="btn btn-primary" data-go="resume">Resume — ${n} of ${QUESTIONS.length} answered</button>
+             <button class="btn btn-ghost" data-go="restart">Start over</button>`
+          : done
+          ? `<button class="btn btn-primary" data-go="results">See your results</button>
+             <button class="btn btn-ghost" data-go="restart">Start over</button>`
+          : `<button class="btn btn-primary" data-go="begin">Begin assessment</button>`}
+      </div>
+    </div>`;
+}
+
+function railHtml(activeIdx){
+  return `<nav class="rail" aria-label="Dimensions"><ol>
+    ${DIMS.map((d,i)=>{
+      const qs = dimQuestions(d.key);
+      const complete = qs.every(q=>answers[q.id]);
+      const cls = i===activeIdx ? "active" : (complete ? "done" : "");
+      return `<li class="${cls}"><span class="num">${complete && i!==activeIdx ? "&#10003;" : (i+1)}</span>
+        <span><span class="dname">${d.label}</span><span class="dweight">${Math.round(d.weight*100)}%</span></span></li>`;
+    }).join("")}
+  </ol></nav>`;
+}
+
+function renderStep(i){
+  const d = DIMS[i];
+  const qs = dimQuestions(d.key);
+  const total = QUESTIONS.length, ans = answeredCount();
+  const complete = ans===total;
+  app.innerHTML = `
+    <div class="assess-grid">
+      ${railHtml(i)}
+      <section>
+        <div class="step-head">
+          <h2 class="display">${d.label}</h2>
+          <p class="focus">${esc(d.focus)} · weighted ${Math.round(d.weight*100)}% of the composite</p>
+        </div>
+        <div class="scalekey">
+          <span><b>1</b> Not in place</span><span><b>3</b> Partly in place</span><span><b>5</b> Fully in place</span>
+        </div>
+        <div class="qs">
+          ${qs.map((q,qi)=>`
+            <div class="q">
+              <fieldset>
+                <legend><span class="qn">${qi+1}.</span>${esc(q.text)}</legend>
+                <div class="scale" role="radiogroup" aria-label="${esc(q.text)}">
+                  ${[1,2,3,4,5].map(v=>`
+                    <input type="radio" name="${q.id}" id="${q.id}_${v}" value="${v}" ${answers[q.id]===v?"checked":""}>
+                    <label for="${q.id}_${v}" title="${esc(SCALE[v-1]||("Level "+v))}">${v}</label>`).join("")}
+                </div>
+              </fieldset>
+            </div>`).join("")}
+        </div>
+        <div class="progress"><i style="width:${ans/total*100}%"></i></div>
+        <div class="stepnav">
+          <div>${i>0?`<button class="btn btn-ghost btn-small" data-step="${i-1}">Back</button>`:`<button class="btn btn-ghost btn-small" data-go="intro">Intro</button>`}</div>
+          <div class="count">${ans} of ${total} answered</div>
+          <div>${i<DIMS.length-1
+            ? `<button class="btn btn-primary btn-small" data-step="${i+1}">Next</button>`
+            : `<button class="btn btn-primary btn-small" data-go="results" ${complete?"":"disabled"}>${complete?"See results":`${total-ans} left`}</button>`}
+          </div>
+        </div>
+      </section>
+    </div>`;
+}
+
+/* ---------------- radar ---------------- */
+function radarSvg(dims){
+  const cx=210, cy=200, R=140, N=dims.length;
+  const pt=(i,r)=>{ const a=(-90 + i*360/N)*Math.PI/180; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+  let grid="";
+  [0.25,0.5,0.75,1].forEach(f=>{
+    const p = dims.map((_,i)=>pt(i,R*f).map(n=>n.toFixed(1)).join(",")).join(" ");
+    grid += `<polygon points="${p}" fill="none" stroke="#e4e9f0" stroke-width="1"/>`;
+  });
+  let axes="", labels="";
+  dims.forEach((d,i)=>{
+    const [x,y]=pt(i,R);
+    axes += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#e4e9f0" stroke-width="1"/>`;
+    const [lx,ly]=pt(i,R+26);
+    const anchor = Math.abs(lx-cx)<8 ? "middle" : (lx<cx ? "end" : "start");
+    labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-family="Inter,sans-serif" font-size="13" font-weight="600" fill="#22374f">${d.label}</text>`;
+    labels += `<text x="${lx.toFixed(1)}" y="${(ly+16).toFixed(1)}" text-anchor="${anchor}" font-family="Inter,sans-serif" font-size="12" fill="#8a94a6">${Math.round(d.pct)}%</text>`;
+  });
+  const poly = dims.map((d,i)=>pt(i,R*d.pct/100).map(n=>n.toFixed(1)).join(",")).join(" ");
+  const dots = dims.map((d,i)=>{ const [x,y]=pt(i,R*d.pct/100); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#0e9f8e"/>`; }).join("");
+  return `<svg class="radar" viewBox="0 0 420 400" role="img" aria-label="Radar of the five dimension scores">
+    ${grid}${axes}
+    <polygon points="${poly}" fill="rgba(14,159,142,.18)" stroke="#0e9f8e" stroke-width="2"/>
+    ${dots}${labels}
+  </svg>`;
+}
+
+/* ---------------- results ---------------- */
+function renderResults(){
+  const { dims, compositePct, band } = score();
+  const pct = Math.round(compositePct);
+  const sorted = [...dims].sort((a,b)=>a.pct-b.pct);
+  const focus = sorted.slice(0,2);
+  const hist = load(K_HIST, []);
+  const last = hist.length ? hist[hist.length-1] : null;
+
+  app.innerHTML = `
+    <div class="results">
+      <div class="verdict">
+        <div>
+          <div class="score display">${pct}%<small>weighted composite maturity</small></div>
+          <span class="bandtag" style="background:${band.color}">${band.name}</span>
+        </div>
+        <div><p class="say">${band.say}</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>Dimension breakdown</h3>
+        <div class="breakdown">
+          ${dims.map(d=>`
+            <div class="dimrow">
+              <div class="lbl">${d.label}<small>weight ${Math.round(d.weight*100)}%</small></div>
+              <div class="bar"><i style="width:${d.pct}%;background:${band.color}"></i></div>
+              <div class="val">${Math.round(d.pct)}%<small>${d.level}</small></div>
+            </div>`).join("")}
+        </div>
+      </div>
+
+      <div class="panel radar-wrap">${radarSvg(dims)}</div>
+
+      <div class="panel">
+        <h3>Where to focus next</h3>
+        <div class="focuslist">
+          ${focus.map(d=>`<div class="focusitem"><h4>${d.label} — ${Math.round(d.pct)}%, ${d.level}</h4><p>${esc(d.advice)}</p></div>`).join("")}
+        </div>
+      </div>
+
+      <div class="result-actions no-print">
+        <button class="btn btn-primary btn-small" data-act="save">Save this result</button>
+        <button class="btn btn-ghost btn-small" data-act="print">Export to PDF</button>
+        <button class="btn btn-ghost btn-small" data-act="json">Download JSON</button>
+        <button class="btn btn-ghost btn-small" data-act="csv">Download CSV</button>
+        <button class="btn btn-ghost btn-small" data-step="4">Review answers</button>
+        <button class="btn btn-ghost btn-small" data-go="restart">Start over</button>
+      </div>
+      <p class="saved-msg no-print" id="savedMsg">${last?`Last saved ${new Date(last.date).toLocaleString()} · ${hist.length} saved result${hist.length>1?"s":""} on this device.`:""}</p>
+    </div>`;
+}
+
+/* ---------------- exports ---------------- */
+function results(){ const s=score(); return {
+  tool:"AI Adoption Maturity Assessment (Appendix A)", version:1,
+  date:new Date().toISOString(),
+  compositePct:Math.round(s.compositePct*10)/10, band:s.band.name,
+  dimensions:s.dims.map(d=>({key:d.key,label:d.label,weight:d.weight,scorePct:Math.round(d.pct*10)/10,level:d.level,rawAvg:Math.round(d.raw*100)/100})),
+  answers
+}; }
+function download(name, text, type){
+  const b=new Blob([text],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+function toCsv(){
+  const s=score();
+  let rows=[["Dimension","Weight %","Score %","Level"]];
+  s.dims.forEach(d=>rows.push([d.label,Math.round(d.weight*100),Math.round(d.pct*10)/10,d.level]));
+  rows.push(["Composite (weighted)","100",Math.round(s.compositePct*10)/10,s.band.name]);
+  return rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+}
+
+/* ---------------- events ---------------- */
+app.addEventListener("change", e=>{
+  const inp = e.target.closest('input[type="radio"]');
+  if(!inp) return;
+  answers[inp.name] = Number(inp.value);
+  save(K_ANS, answers);
+  const bar = app.querySelector(".progress i");
+  if(bar) bar.style.width = (answeredCount()/QUESTIONS.length*100)+"%";
+  const cnt = app.querySelector(".stepnav .count");
+  if(cnt) cnt.textContent = answeredCount()+" of "+QUESTIONS.length+" answered";
+  // refresh the results button state on the last step
+  const rb = app.querySelector('.stepnav [data-go="results"]');
+  if(rb){ const left=QUESTIONS.length-answeredCount(); rb.disabled=left>0; rb.textContent=left>0?left+" left":"See results"; }
+});
+
+app.addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.step!==undefined){ view=Number(b.dataset.step); render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(b.dataset.go){
+    const g=b.dataset.go;
+    if(g==="begin"||g==="resume"){ view=firstIncompleteStep(); }
+    else if(g==="results"){ view="results"; }
+    else if(g==="intro"){ view="intro"; }
+    else if(g==="restart"){
+      if(confirm("Clear all your answers and start over?")){ answers={}; save(K_ANS,answers); view="intro"; }
+      else return;
+    }
+    render(); window.scrollTo({top:0,behavior:"smooth"}); return;
+  }
+  if(b.dataset.act){
+    const a=b.dataset.act;
+    if(a==="print") window.print();
+    else if(a==="json") download("ai-adoption-assessment.json", JSON.stringify(results(),null,2), "application/json");
+    else if(a==="csv") download("ai-adoption-assessment.csv", toCsv(), "text/csv");
+    else if(a==="save"){
+      const s=score(); const hist=load(K_HIST,[]);
+      hist.push({date:new Date().toISOString(), compositePct:Math.round(s.compositePct*10)/10, band:s.band.name});
+      while(hist.length>12) hist.shift();
+      save(K_HIST,hist);
+      const m=document.getElementById("savedMsg");
+      if(m) m.textContent="Saved "+new Date().toLocaleString()+" · "+hist.length+" saved result"+(hist.length>1?"s":"")+" on this device.";
+    }
+  }
+});
+
+function firstIncompleteStep(){
+  for(let i=0;i<DIMS.length;i++){ if(dimQuestions(DIMS[i].key).some(q=>!answers[q.id])) return i; }
+  return DIMS.length-1;
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Executive Dashboard — Appendix B</title>
+<meta name="description" content="An editable executive dashboard template for reporting AI program health, value, and leading indicators, from the book From Deployment to Transformation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="book" href="../index.html">From Deployment to Transformation <span>· companion tools</span></a>
+    <nav><a href="../index.html">All tools</a></nav>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="wrap">
+    <div id="app"></div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Appendix B · companion to <em>From Deployment to Transformation</em> by Mohan Krishnamurthy · Leomohan Publications</span>
+    <span>Your dashboard is saved in this browser. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+const K_BOARD = "aiedash.board.v1";
+const K_MATURITY = "aima.history.v1"; // written by Appendix A
+
+const BANDS = [
+  { name:"Early", min:0, color:"#8a94a6" },
+  { name:"Developing", min:40, color:"#3f97a6" },
+  { name:"Advancing", min:60, color:"#2563eb" },
+  { name:"Mature", min:80, color:"#0a2540" },
+];
+
+/* worked example — mirrors the book's dashboard figure */
+function sample(){ return {
+  org:"Sample Organization",
+  period:"As of Q3 2026",
+  status:"ontrack",
+  statusNote:"Strong adoption momentum, value accruing, and a growing pipeline of use cases.",
+  groups:[
+    { title:"Program health", subtitle:"Adoption foundation", metrics:[
+      { label:"License utilization", value:"78", unit:"%", delta:"+12% vs last month", dir:"up", history:"60,64,68,72,74,78" },
+      { label:"Weekly active users", value:"62", unit:"%", delta:"+18% vs last month", dir:"up", history:"40,44,50,54,58,62" },
+      { label:"Enablement coverage", value:"85", unit:"%", delta:"No change vs last month", dir:"flat", history:"85,85,85,85,85,85" },
+    ]},
+    { title:"Value delivered", subtitle:"Business outcomes", metrics:[
+      { label:"Hours saved", value:"12,400", unit:"/week", delta:"+28% vs last month", dir:"up", history:"7000,8200,9500,10800,11600,12400" },
+      { label:"Cycle time improvement", value:"34", unit:"%", delta:"+11% vs last month", dir:"up", history:"18,22,26,29,31,34" },
+      { label:"Cost reduction", value:"$2.1M", unit:"est.", delta:"+19% vs last month", dir:"up", history:"0.9,1.2,1.5,1.7,1.9,2.1" },
+    ]},
+    { title:"Leading indicators", subtitle:"Engagement and pipeline", metrics:[
+      { label:"Champion network", value:"48", unit:"active", delta:"+14% vs last month", dir:"up", history:"30,34,38,41,45,48" },
+      { label:"Use case pipeline", value:"23", unit:"pending", delta:"No change vs last month", dir:"flat", history:"22,23,22,23,23,23" },
+      { label:"Feature adoption", value:"Trending up", unit:"", delta:"+16% vs last month", dir:"up", history:"50,54,58,60,63,66" },
+    ]},
+  ]
+}; }
+
+let board = load(K_BOARD, null) || sample();
+let editing = false;
+const app = document.getElementById("app");
+
+function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch(e){ return d; } }
+function save(){ try{ localStorage.setItem(K_BOARD, JSON.stringify(board)); }catch(e){} }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- sparkline ---------- */
+function spark(historyStr, dir){
+  const nums = String(historyStr||"").split(",").map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+  if(nums.length < 2) return "";
+  const w=100,h=30,pad=3;
+  const min=Math.min(...nums), max=Math.max(...nums), span=(max-min)||1;
+  const pts = nums.map((n,i)=>{
+    const x = pad + i*(w-2*pad)/(nums.length-1);
+    const y = h-pad - (n-min)/span*(h-2*pad);
+    return x.toFixed(1)+","+y.toFixed(1);
+  }).join(" ");
+  const color = dir==="up" ? "#0e9f8e" : dir==="down" ? "#b06f12" : "#8a94a6";
+  const [lx,ly]=pts.split(" ").pop().split(",");
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lx}" cy="${ly}" r="2.6" fill="${color}"/></svg>`;
+}
+function deltaHtml(m){
+  const arrow = m.dir==="up" ? "&#9650;" : m.dir==="down" ? "&#9660;" : "&#8212;";
+  return `<span class="delta ${esc(m.dir||"flat")}">${arrow} ${esc(m.delta||"")}</span>`;
+}
+
+/* ---------- maturity strip (reads Appendix A) ---------- */
+function maturityStrip(){
+  const hist = load(K_MATURITY, []);
+  if(!Array.isArray(hist) || !hist.length){
+    return `<div class="maturity-strip empty">
+      <span>No maturity score yet.</span>
+      <span class="meta">Run the Appendix A assessment to show your program's maturity here.</span>
+      <a class="btn btn-ghost btn-small" href="../appendix-a/index.html">Open Appendix A</a></div>`;
+  }
+  const last = hist[hist.length-1];
+  const pct = Math.round(last.compositePct);
+  const band = [...BANDS].reverse().find(b=>pct>=b.min) || BANDS[0];
+  return `<div class="maturity-strip">
+    <span class="big">${pct}%</span>
+    <span class="bandtag" style="background:${band.color}">${esc(last.band||band.name)}</span>
+    <span class="meta">Program maturity, from your Appendix A assessment on ${new Date(last.date).toLocaleDateString()}.</span>
+    <a class="btn btn-ghost btn-small" href="../appendix-a/index.html">Re-run assessment</a></div>`;
+}
+
+/* ---------- render ---------- */
+function render(){ editing ? renderEditor() : renderView(); window.scrollTo({top:0}); }
+
+function renderView(){
+  app.innerHTML = `
+    <div class="dash-topbar">
+      <div class="dash-title">
+        <h1 class="display">${esc(board.org)}</h1>
+        <div class="period">AI adoption program dashboard &middot; ${esc(board.period)}</div>
+      </div>
+      <div class="dash-status">
+        <span class="pill is-${esc(board.status)}"><span class="dot"></span>${statusLabel(board.status)}</span>
+      </div>
+    </div>
+    ${board.statusNote ? `<p class="status-note">${esc(board.statusNote)}</p>` : ""}
+    ${maturityStrip()}
+    ${board.groups.map(g=>`
+      <section class="dash-group">
+        <h2>${esc(g.title)}</h2>
+        <p class="gsub">${esc(g.subtitle)}</p>
+        <div class="metric-grid">
+          ${g.metrics.map(m=>`
+            <div class="metric">
+              <div class="mlabel">${esc(m.label)}</div>
+              <div class="mval">${esc(m.value)}${m.unit?`<span class="unit">${esc(m.unit)}</span>`:""}</div>
+              <div class="mfoot">${deltaHtml(m)}${spark(m.history,m.dir)}</div>
+            </div>`).join("")}
+        </div>
+      </section>`).join("")}
+    <div class="dash-actions no-print">
+      <button class="btn btn-primary btn-small" data-act="edit">Edit dashboard</button>
+      <button class="btn btn-ghost btn-small" data-act="print">Export to PDF</button>
+      <button class="btn btn-ghost btn-small" data-act="json">Download JSON</button>
+      <button class="btn btn-ghost btn-small" data-act="csv">Download CSV</button>
+      <label class="btn btn-ghost btn-small" style="cursor:pointer">Import JSON<input type="file" accept="application/json,.json" id="importFile" hidden></label>
+      <span class="grow"></span>
+      <button class="btn btn-ghost btn-small" data-act="reset">Reset to sample</button>
+    </div>
+    <p class="saved-msg no-print" id="msg"></p>`;
+}
+
+function renderEditor(){
+  app.innerHTML = `
+    <div class="dash-topbar">
+      <div class="dash-title"><h1 class="display">Edit dashboard</h1>
+      <div class="period">Changes save automatically in this browser.</div></div>
+      <div class="dash-status"><button class="btn btn-primary btn-small" data-act="done">Done editing</button></div>
+    </div>
+    <p class="editnote">Fill in your own numbers. Each metric takes a value, a unit, a change note, a direction, and an optional comma-separated history for the sparkline (for example <code>60,64,68,72,78</code>).</p>
+    <div class="editrow">
+      <div class="field"><label>Organization</label><input data-b="org" value="${esc(board.org)}"></div>
+      <div class="field"><label>Reporting period</label><input data-b="period" value="${esc(board.period)}"></div>
+    </div>
+    <div class="editrow">
+      <div class="field"><label>Program status</label>
+        <select data-b="status">
+          <option value="ontrack" ${board.status==="ontrack"?"selected":""}>On track</option>
+          <option value="atrisk" ${board.status==="atrisk"?"selected":""}>At risk</option>
+          <option value="offtrack" ${board.status==="offtrack"?"selected":""}>Off track</option>
+        </select></div>
+      <div class="field"><label>Status note</label><input data-b="statusNote" value="${esc(board.statusNote)}"></div>
+    </div>
+    ${board.groups.map((g,gi)=>`
+      <section class="dash-group">
+        <div class="grouptop">
+          <div class="field"><label>Group title</label><input data-g="${gi}" data-gf="title" value="${esc(g.title)}"></div>
+          <div class="field"><label>Group subtitle</label><input data-g="${gi}" data-gf="subtitle" value="${esc(g.subtitle)}"></div>
+        </div>
+        <div class="metric-grid">
+          ${g.metrics.map((m,mi)=>`
+            <div class="metric editing">
+              <div class="field"><label>Label</label><input data-g="${gi}" data-m="${mi}" data-f="label" value="${esc(m.label)}"></div>
+              <div class="editrow">
+                <div class="field"><label>Value</label><input data-g="${gi}" data-m="${mi}" data-f="value" value="${esc(m.value)}"></div>
+                <div class="field"><label>Unit</label><input data-g="${gi}" data-m="${mi}" data-f="unit" value="${esc(m.unit)}"></div>
+              </div>
+              <div class="editrow">
+                <div class="field"><label>Change note</label><input data-g="${gi}" data-m="${mi}" data-f="delta" value="${esc(m.delta)}"></div>
+                <div class="field"><label>Direction</label>
+                  <select data-g="${gi}" data-m="${mi}" data-f="dir">
+                    <option value="up" ${m.dir==="up"?"selected":""}>Up</option>
+                    <option value="flat" ${m.dir==="flat"?"selected":""}>Flat</option>
+                    <option value="down" ${m.dir==="down"?"selected":""}>Down</option>
+                  </select></div>
+              </div>
+              <div class="field"><label>History (comma-separated)</label><textarea data-g="${gi}" data-m="${mi}" data-f="history">${esc(m.history)}</textarea></div>
+              <button class="rm" data-rm-g="${gi}" data-rm-m="${mi}">Remove metric</button>
+            </div>`).join("")}
+          <button class="addmetric" data-add="${gi}">+ Add metric</button>
+        </div>
+      </section>`).join("")}
+    <div class="dash-actions">
+      <button class="btn btn-primary btn-small" data-act="done">Done editing</button>
+      <button class="btn btn-ghost btn-small" data-act="reset">Reset to sample</button>
+    </div>`;
+}
+
+function statusLabel(s){ return s==="ontrack"?"On track":s==="atrisk"?"At risk":"Off track"; }
+
+/* ---------- exports ---------- */
+function download(name,text,type){
+  const b=new Blob([text],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+function toCsv(){
+  let rows=[["Group","Metric","Value","Unit","Change","Direction"]];
+  board.groups.forEach(g=>g.metrics.forEach(m=>rows.push([g.title,m.label,m.value,m.unit,m.delta,m.dir])));
+  return rows.map(r=>r.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+}
+function msg(t){ const m=document.getElementById("msg"); if(m) m.textContent=t; }
+
+/* ---------- events ---------- */
+app.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.dataset.b!==undefined){ board[t.dataset.b]=t.value; save(); return; }
+  if(t.dataset.g!==undefined && t.dataset.gf){ board.groups[+t.dataset.g][t.dataset.gf]=t.value; save(); return; }
+  if(t.dataset.g!==undefined && t.dataset.f){ board.groups[+t.dataset.g].metrics[+t.dataset.m][t.dataset.f]=t.value; save(); return; }
+});
+
+app.addEventListener("click", e=>{
+  const rm=e.target.closest("[data-rm-g]");
+  if(rm){ board.groups[+rm.dataset.rmG].metrics.splice(+rm.dataset.rmM,1); save(); renderEditor(); return; }
+  const add=e.target.closest("[data-add]");
+  if(add){ board.groups[+add.dataset.add].metrics.push({label:"New metric",value:"0",unit:"",delta:"",dir:"flat",history:""}); save(); renderEditor(); return; }
+  const b=e.target.closest("button[data-act]");
+  if(!b) return;
+  const a=b.dataset.act;
+  if(a==="edit"){ editing=true; render(); }
+  else if(a==="done"){ editing=false; render(); }
+  else if(a==="print"){ window.print(); }
+  else if(a==="json"){ download("executive-dashboard.json", JSON.stringify(board,null,2), "application/json"); }
+  else if(a==="csv"){ download("executive-dashboard.csv", toCsv(), "text/csv"); }
+  else if(a==="reset"){ if(confirm("Replace the current dashboard with the sample?")){ board=sample(); save(); editing=false; render(); } }
+});
+
+app.addEventListener("change", e=>{
+  const f=e.target.closest("#importFile");
+  if(!f || !f.files || !f.files[0]) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ try{
+      const data=JSON.parse(reader.result);
+      if(data && Array.isArray(data.groups)){ board=data; save(); render(); msg("Dashboard imported."); }
+      else msg("That file does not look like a dashboard export.");
+    }catch(err){ msg("Could not read that file — is it a dashboard JSON export?"); }
+  };
+  reader.readAsText(f.files[0]);
+});
+
+render();
+</script>
+</body>
+</html>
